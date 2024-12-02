@@ -8,7 +8,6 @@ import org.springframework.web.multipart.MultipartFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,6 +28,9 @@ public class FileService {
     @Autowired
     private TextSummarizationService textSummarizationService;
 
+    @Autowired
+    private MediaFileService mediaFileService;
+
     public String processFile(MultipartFile file) {
         String category = "Unknown";
         try {
@@ -48,16 +50,15 @@ public class FileService {
         String summary = textSummarizationService.summarizeText(file);
         logger.info("Generated summary: {}", summary);
         String category = categorizeContent(summary);
-        saveDocumentMetadata(file, summary, category); // Save the actual summary and category
+        saveDocumentMetadata(file, summary, category);
         return category;
     }
 
     public String transcribeAudioOrVideo(MultipartFile file) {
-        // Placeholder for actual transcription logic
-        String transcription = "Sample transcription";
-        logger.info("Generated transcription: {}", transcription);
-        String category = categorizeContent(transcription);
-        saveDocumentMetadata(file, transcription, category); // Save the actual transcription and category
+        String summary = mediaFileService.processMedia(file);
+        logger.info("Generated summary: {}", summary);
+        String category = categorizeContent(summary);
+        saveDocumentMetadata(file, summary, category);
         return category;
     }
 
@@ -82,12 +83,17 @@ public class FileService {
     }
 
     public void saveDocumentMetadata(MultipartFile file, String summary, String category) {
+        String fileName = file.getOriginalFilename();
+        if (documentRepository.existsByFileName(fileName)) {
+            logger.info("Duplicate file detected: {}", fileName);
+            return;
+        }
         Document document = new Document();
-        document.setFileName(file.getOriginalFilename());
-        document.setSummary(summary); // Save the actual summary
+        document.setFileName(fileName);
+        document.setSummary(summary);
         document.setCategory(category);
         documentRepository.save(document);
-        logger.info("Document metadata saved: fileName={}, summary={}, category={}", file.getOriginalFilename(), summary, category);
+        logger.info("Document metadata saved: fileName={}, summary={}, category={}", fileName, summary, category);
     }
 
     private boolean isTextFile(MultipartFile file) {
@@ -96,11 +102,12 @@ public class FileService {
     }
 
     private boolean isAudioOrVideoFile(MultipartFile file) {
-        return file.getContentType().startsWith("audio/") || file.getContentType().startsWith("video/");
+        String contentType = file.getContentType();
+        return contentType.startsWith("audio/") || contentType.startsWith("video/");
     }
 
-	public Map<String, List<Document>> getFilesByCategory() {
-		List<Document> documents = documentRepository.findAll();
+    public Map<String, List<Document>> getFilesByCategory() {
+        List<Document> documents = documentRepository.findAll();
         return documents.stream().collect(Collectors.groupingBy(Document::getCategory));
-	}
+    }
 }
