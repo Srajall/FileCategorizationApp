@@ -110,4 +110,24 @@ public class FileService {
         List<Document> documents = documentRepository.findAll();
         return documents.stream().collect(Collectors.groupingBy(Document::getCategory));
     }
+    public Document getFileById(long id) {
+        // Logic to retrieve a file by ID
+        return documentRepository.findById(id).orElse(null);
+    }
+
+    public Document updateFile(long id, MultipartFile file) {
+        // Logic to update the file
+        Document existingFile = documentRepository.findById(id).orElse(null);
+        if (existingFile != null) {
+            existingFile.setFileName(file.getOriginalFilename());
+            // Update other properties as needed
+            return documentRepository.save(existingFile);
+        }
+        return null;
+    }
+
+    public void deleteFile(long id) {
+        // Logic to delete the file
+        documentRepository.deleteById(id);
+    }
 }
